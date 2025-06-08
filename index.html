@@ -77,14 +77,9 @@
 
   <h2>📅 Progress by Day</h2>
   <canvas id="progressChart" width="400" height="200"></canvas>
-  <button onclick="exportChart()" style="margin-top: 10px; padding: 10px; font-size: 1em;">
-  📸 Save Chart
+  <button onclick="saveChartAndLog()" style="margin-top: 10px; padding: 10px; font-size: 1em;">
+  📸 Save Progress
   </button>
-
-  <button onclick="simulateFakeData(7)" style="margin-top: 10px;">
-  🧪 Simulate 7 Days of Logs
-  </button>
-
 
   <script>
 
@@ -181,6 +176,29 @@
         }
     }
 
+    function saveChartAndLog() {
+        // Format date as YYYY-MM-DD
+        const today = new Date().toISOString().split("T")[0];
+
+        // 1. Save chart as PNG
+        const canvas = document.getElementById('progressChart');
+        const imageLink = document.createElement('a');
+        imageLink.href = canvas.toDataURL('image/png');
+        imageLink.download = `sweet-points-chart-${today}.png`;
+        imageLink.click();
+
+        // 2. Save log as JSON
+        const dataStr = JSON.stringify(log, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const jsonLink = document.createElement("a");
+        jsonLink.href = url;
+        jsonLink.download = `sweet-points-log-${today}.json`;
+        jsonLink.click();
+        URL.revokeObjectURL(url);
+    }
+
+
     function drawChart() {
         // Step 1: Get all unique dates sorted
         const datesSet = new Set();
@@ -270,18 +288,6 @@
                 plugins: [whiteBackgroundPlugin],
             }
         );
-    }
-
-    function exportChart() {
-        const canvas = document.getElementById('progressChart');
-        const imageURL = canvas.toDataURL('image/png');
-
-        const a = document.createElement("a");
-        a.href = imageURL;
-        a.download = "behavior_chart.png";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
     }
 
     function simulateFakeData(days = 7) {
