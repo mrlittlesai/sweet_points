@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sweet Points Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: "Comic Sans MS", cursive, sans-serif;
+      background: #fdf6e3;
+      color: #333;
+      padding: 20px;
+      max-width: 600px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2em;
+    }
+
+    .category {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fff3cd;
+      border: 2px solid #ffeeba;
+      border-radius: 12px;
+      padding: 10px 20px;
+      margin: 10px 0;
+      box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
+    }
+
+    .category span {
+      font-size: 1.3em;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .buttons button {
+      font-size: 1.2em;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .add { background-color: #d4edda; }
+    .subtract { background-color: #f8d7da; }
+
+    .total {
+      text-align: center;
+      font-size: 1.5em;
+      margin-top: 20px;
+      background-color: #cce5ff;
+      border: 2px solid #b8daff;
+      border-radius: 12px;
+      padding: 15px;
+    }
+    
+  </style>
+</head>
+
+<body>
+
+  <h1>🌟 My Behavior Tracker</h1>
+
+  <div id="categories"></div>
+
+  <div class="total">
+    🧮 Total Points: <span id="totalPoints">0</span>
+  </div>
+
+  <h2>📅 Progress by Day</h2>
+  <canvas id="progressChart" width="400" height="200"></canvas>
+  <button onclick="exportChart()" style="margin-top: 10px; padding: 10px; font-size: 1em;">
+  📸 Save Chart
+  </button>
+
+  <button onclick="simulateFakeData(7)" style="margin-top: 10px;">
+  🧪 Simulate 7 Days of Logs
+  </button>
+
+
+  <script>
+
+    const defaultCategories = [
+        { name: "😊 Kindness", key: "kindness" },
+        { name: "📚 Homework", key: "homework" },
+        { name: "👂 Listening", key: "listening" },
+        { name: "💪 Helping", key: "helping" }
+    ];
+
+    let points = JSON.parse(localStorage.getItem("points")) || {
+        kindness: 0,
+        homework: 0,
+        listening: 0,
+        helping: 0
+    };
+
+    let log = JSON.parse(localStorage.getItem("pointLog")) || [];
+
+    const categoriesDiv = document.getElementById("categories");
+    const totalPointsSpan = document.getElementById("totalPoints");
+    const progressLogDiv = document.getElementById("progressLog");
+    let chart = null;
+
+    function updateDisplay() {
+        categoriesDiv.innerHTML = "";
+        let total = 0;
+
+        defaultCategories.forEach(({ name, key }) => {
+        const categoryDiv = document.createElement("div");
+        categoryDiv.className = "category";
+
+        const label = document.createElement("span");
+        label.textContent = `${name}: ${points[key]} pts`;
+
+        const btnAdd = document.createElement("button");
+        btnAdd.textContent = "+";
+        btnAdd.className = "add";
+        btnAdd.onclick = () => {
+            points[key]++;
+            logPointChange(key, 1);
+            saveAndUpdate();
+        };
+
+        const btnSub = document.createElement("button");
+        btnSub.textContent = "−";
+        btnSub.className = "subtract";
+        btnSub.onclick = () => {
+            points[key]--;
+            logPointChange(key, -1);
+            saveAndUpdate();
+        };
+
+        const btns = document.createElement("div");
+        btns.className = "buttons";
+        btns.appendChild(btnAdd);
+        btns.appendChild(btnSub);
+
+        categoryDiv.appendChild(label);
+        categoryDiv.appendChild(btns);
+        categoriesDiv.appendChild(categoryDiv);
+
+        total += points[key];
+        });
+
+        totalPointsSpan.textContent = total;
+        drawChart();
+    }
+
+    function saveAndUpdate() {
+        localStorage.setItem("points", JSON.stringify(points));
+        localStorage.setItem("pointLog", JSON.stringify(log));
+        updateDisplay();
+    }
+
+    function logPointChange(category, delta) {
+        const now = new Date();
+        log.push({
+        category,
+        delta,
+        timestamp: now.toISOString().split("T")[0] // YYYY-MM-DD
+        });
+    }
+
+    const whiteBackgroundPlugin = {
+        id: 'whiteBackgroundPlugin',
+        beforeDraw(chart, args, options) {
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.fillStyle = options.color || 'white';
+            ctx.fillRect(0, 0, chart.width, chart.height);
+            ctx.restore();
+        }
+    }
+
+    function drawChart() {
+        // Step 1: Get all unique dates sorted
+        const datesSet = new Set();
+        log.forEach(e => datesSet.add(e.timestamp));
+        const dates = Array.from(datesSet).sort();
+
+        // Step 2: Prepare categories & colors
+        const categories = defaultCategories.map(c => c.key);
+        const categoryNames = defaultCategories.map(c => c.name);
+        const colors = [
+            "#FFD700", // Gold
+            "#FF69B4", // Hot Pink
+            "#87CEEB", // Sky Blue
+            "#98FB98"  // Pale Green
+        ];
+
+        // Step 3: Initialize dataset map: category → array of points per date
+        const dataByCategory = {};
+        categories.forEach(cat => {
+            dataByCategory[cat] = dates.map(() => 0);
+        });
+
+        // Step 4: Aggregate points per date/category
+        log.forEach(entry => {
+            const dateIndex = dates.indexOf(entry.timestamp);
+            if (dateIndex >= 0) {
+            dataByCategory[entry.category][dateIndex] += entry.delta;
+            }
+        });
+
+        // Step 5: Build datasets for Chart.js
+        const datasets = categories.map((cat, i) => ({
+            label: categoryNames[i],
+            data: dataByCategory[cat],
+            backgroundColor: colors[i],
+            borderRadius: 4,
+            borderSkipped: false,
+            maxBarThickness: 20,
+        }));
+
+        // Step 6: Create or update the chart
+        const ctx = document.getElementById('progressChart').getContext('2d');
+        if (chart) chart.destroy();
+
+        chart = new Chart(ctx, 
+            {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: { size: 14 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} points`
+                            }
+                        },
+                        whiteBackgroundPlugin: {}  // activate plugin here
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                font: { size: 16, weight: 'bold' }
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Points',
+                                font: { size: 16, weight: 'bold' }
+                            }
+                        }
+                    }
+                },
+                plugins: [whiteBackgroundPlugin],
+            }
+        );
+    }
+
+    function exportChart() {
+        const canvas = document.getElementById('progressChart');
+        const imageURL = canvas.toDataURL('image/png');
+
+        const a = document.createElement("a");
+        a.href = imageURL;
+        a.download = "behavior_chart.png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    function simulateFakeData(days = 7) {
+        const today = new Date();
+        const fakeCategories = ["kindness", "homework", "listening", "helping"];
+        const newLog = [];
+
+        for (let i = 0; i < days; i++) {
+            const day = new Date(today);
+            day.setDate(today.getDate() - i);
+            const dateStr = day.toISOString().split("T")[0];
+
+            // Add 1–5 random entries for this day
+            const entries = Math.floor(Math.random() * 5) + 1;
+
+            for (let j = 0; j < entries; j++) {
+            const category = fakeCategories[Math.floor(Math.random() * fakeCategories.length)];
+            const delta = Math.random() > 0.3 ? 1 : -1;
+            newLog.push({ category, delta, timestamp: dateStr });
+            }
+        }
+
+        // Add to existing log
+        log = [...log, ...newLog];
+        localStorage.setItem("pointLog", JSON.stringify(log));
+
+        updateDisplay();
+    }
+
+    updateDisplay();
+  </script>
+</body>
+</html>
