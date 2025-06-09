@@ -158,9 +158,11 @@
             btnSub.textContent = "−";
             btnSub.className = "subtract";
             btnSub.onclick = () => {
-                points[key]--;
-                logPointChange(key, -1);
-                saveAndUpdate();
+                if (points[key] > 0) {
+                    points[key]--;
+                    logPointChange(key, -1);
+                    saveAndUpdate();
+                }
             };
 
             const btns = document.createElement("div");
