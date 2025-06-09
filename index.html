@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Sweet Points Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -61,263 +61,313 @@
       border-radius: 12px;
       padding: 15px;
     }
+
+    button, input, select, textarea {
+        font-size: 16px; /* Prevent iOS zoom on tap */
+    }
     
   </style>
 </head>
 
 <body>
 
-  <h1>🍦 My Sweet Points Tracker 🍰 </h1>
+    <h1>🍦 My Sweet Points Tracker 🍰 </h1>
 
-  <div id="categories"></div>
+    <div id="categories"></div>
 
-  <div class="total">
-    🧮 Total Points: <span id="totalPoints">0</span>
-  </div>
+    <div class="total">
+        🧮 Total Points: <span id="totalPoints">0</span>
+    </div>
 
-  <h2>📅 Progress by Day</h2>
-  <canvas id="progressChart" width="400" height="200"></canvas>
-  <button onclick="saveChartAndLog()" style="margin-top: 10px; padding: 10px; font-size: 1em;">
-  📸 Save Progress
-  </button>
+    <h2>📅 Progress by Day</h2>
+    <canvas id="progressChart" width="400" height="200"></canvas>
+    <button onclick="saveChartAndLog()" style="margin-top: 10px; padding: 10px; font-size: 1em;">
+    💾 Save Progress
+    </button>
 
-  <script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
-    const defaultCategories = [
-        { name: "😊 Kindness", key: "kindness" },
-        { name: "📚 Homework", key: "homework" },
-        { name: "👂 Listening", key: "listening" },
-        { name: "💪 Helping", key: "helping" }
-    ];
 
-    let points = JSON.parse(localStorage.getItem("points")) || {
-        kindness: 0,
-        homework: 0,
-        listening: 0,
-        helping: 0
-    };
-
-    let log = JSON.parse(localStorage.getItem("pointLog")) || [];
-
-    const categoriesDiv = document.getElementById("categories");
-    const totalPointsSpan = document.getElementById("totalPoints");
-    const progressLogDiv = document.getElementById("progressLog");
-    let chart = null;
-
-    function updateDisplay() {
-        categoriesDiv.innerHTML = "";
-        let total = 0;
-
-        defaultCategories.forEach(({ name, key }) => {
-        const categoryDiv = document.createElement("div");
-        categoryDiv.className = "category";
-
-        const label = document.createElement("span");
-        label.textContent = `${name}: ${points[key]} pts`;
-
-        const btnAdd = document.createElement("button");
-        btnAdd.textContent = "+";
-        btnAdd.className = "add";
-        btnAdd.onclick = () => {
-            points[key]++;
-            logPointChange(key, 1);
-            saveAndUpdate();
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCt96hZOKqr3i2WUiOt377wUAxn7dvS2AI",
+            authDomain: "sweetpoints-9d554.firebaseapp.com",
+            projectId: "sweetpoints-9d554",
+            storageBucket: "sweetpoints-9d554.firebasestorage.app",
+            messagingSenderId: "1004205005159",
+            appId: "1:1004205005159:web:22396a31eee947b09af7c2"
         };
 
-        const btnSub = document.createElement("button");
-        btnSub.textContent = "−";
-        btnSub.className = "subtract";
-        btnSub.onclick = () => {
-            points[key]--;
-            logPointChange(key, -1);
-            saveAndUpdate();
-        };
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+    </script>
 
-        const btns = document.createElement("div");
-        btns.className = "buttons";
-        btns.appendChild(btnAdd);
-        btns.appendChild(btnSub);
+    <script>
 
-        categoryDiv.appendChild(label);
-        categoryDiv.appendChild(btns);
-        categoriesDiv.appendChild(categoryDiv);
-
-        total += points[key];
-        });
-
-        totalPointsSpan.textContent = total;
-        drawChart();
-    }
-
-    function saveAndUpdate() {
-        localStorage.setItem("points", JSON.stringify(points));
-        localStorage.setItem("pointLog", JSON.stringify(log));
-        updateDisplay();
-    }
-
-    function logPointChange(category, delta) {
-        const now = new Date();
-        log.push({
-        category,
-        delta,
-        timestamp: now.toISOString().split("T")[0] // YYYY-MM-DD
-        });
-    }
-
-    const whiteBackgroundPlugin = {
-        id: 'whiteBackgroundPlugin',
-        beforeDraw(chart, args, options) {
-            const ctx = chart.ctx;
-            ctx.save();
-            ctx.globalCompositeOperation = 'destination-over';
-            ctx.fillStyle = options.color || 'white';
-            ctx.fillRect(0, 0, chart.width, chart.height);
-            ctx.restore();
-        }
-    }
-
-    function saveChartAndLog() {
-        // Format date as YYYY-MM-DD
-        const today = new Date().toISOString().split("T")[0];
-
-        // 1. Save chart as PNG
-        const canvas = document.getElementById('progressChart');
-        const imageLink = document.createElement('a');
-        imageLink.href = canvas.toDataURL('image/png');
-        imageLink.download = `sweet-points-chart-${today}.png`;
-        imageLink.click();
-
-        // 2. Save log as JSON
-        const dataStr = JSON.stringify(log, null, 2);
-        const blob = new Blob([dataStr], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const jsonLink = document.createElement("a");
-        jsonLink.href = url;
-        jsonLink.download = `sweet-points-log-${today}.json`;
-        jsonLink.click();
-        URL.revokeObjectURL(url);
-    }
-
-
-    function drawChart() {
-        // Step 1: Get all unique dates sorted
-        const datesSet = new Set();
-        log.forEach(e => datesSet.add(e.timestamp));
-        const dates = Array.from(datesSet).sort();
-
-        // Step 2: Prepare categories & colors
-        const categories = defaultCategories.map(c => c.key);
-        const categoryNames = defaultCategories.map(c => c.name);
-        const colors = [
-            "#FFD700", // Gold
-            "#FF69B4", // Hot Pink
-            "#87CEEB", // Sky Blue
-            "#98FB98"  // Pale Green
+        const defaultCategories = [
+            { name: "😊 Kindness", key: "kindness" },
+            { name: "📚 Homework", key: "homework" },
+            { name: "👂 Listening", key: "listening" },
+            { name: "💪 Helping", key: "helping" }
         ];
 
-        // Step 3: Initialize dataset map: category → array of points per date
-        const dataByCategory = {};
-        categories.forEach(cat => {
-            dataByCategory[cat] = dates.map(() => 0);
+        let points = {
+            kindness: 0,
+            homework: 0,
+            listening: 0,
+            helping: 0
+        };
+
+        let log = [];
+
+        loadProgressFromFirebase((data) => {
+            if (data.points) points = data.points;
+            if (data.log) log = data.log;
+            updateDisplay();
         });
 
-        // Step 4: Aggregate points per date/category
-        log.forEach(entry => {
-            const dateIndex = dates.indexOf(entry.timestamp);
-            if (dateIndex >= 0) {
-            dataByCategory[entry.category][dateIndex] += entry.delta;
-            }
-        });
+        const categoriesDiv = document.getElementById("categories");
+        const totalPointsSpan = document.getElementById("totalPoints");
+        const progressLogDiv = document.getElementById("progressLog");
+        let chart = null;
 
-        // Step 5: Build datasets for Chart.js
-        const datasets = categories.map((cat, i) => ({
-            label: categoryNames[i],
-            data: dataByCategory[cat],
-            backgroundColor: colors[i],
-            borderRadius: 4,
-            borderSkipped: false,
-            maxBarThickness: 20,
-        }));
+        function updateDisplay() {
+            categoriesDiv.innerHTML = "";
+            let total = 0;
 
-        // Step 6: Create or update the chart
-        const ctx = document.getElementById('progressChart').getContext('2d');
-        if (chart) chart.destroy();
+            defaultCategories.forEach(({ name, key }) => {
+            const categoryDiv = document.createElement("div");
+            categoryDiv.className = "category";
 
-        chart = new Chart(ctx, 
-            {
-                type: 'bar',
-                data: {
-                    labels: dates,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                font: { size: 14 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} points`
-                            }
-                        },
-                        whiteBackgroundPlugin: {}  // activate plugin here
-                    },
-                    scales: {
-                        x: {
-                            stacked: true,
-                            title: {
-                                display: true,
-                                text: 'Date',
-                                font: { size: 16, weight: 'bold' }
-                            }
-                        },
-                        y: {
-                            stacked: true,
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Points',
-                                font: { size: 16, weight: 'bold' }
-                            }
-                        }
-                    }
-                },
-                plugins: [whiteBackgroundPlugin],
-            }
-        );
-    }
+            const label = document.createElement("span");
+            label.textContent = `${name}: ${points[key]} pts`;
 
-    function simulateFakeData(days = 7) {
-        const today = new Date();
-        const fakeCategories = ["kindness", "homework", "listening", "helping"];
-        const newLog = [];
+            const btnAdd = document.createElement("button");
+            btnAdd.textContent = "+";
+            btnAdd.className = "add";
+            btnAdd.onclick = () => {
+                points[key]++;
+                logPointChange(key, 1);
+                saveAndUpdate();
+            };
 
-        for (let i = 0; i < days; i++) {
-            const day = new Date(today);
-            day.setDate(today.getDate() - i);
-            const dateStr = day.toISOString().split("T")[0];
+            const btnSub = document.createElement("button");
+            btnSub.textContent = "−";
+            btnSub.className = "subtract";
+            btnSub.onclick = () => {
+                points[key]--;
+                logPointChange(key, -1);
+                saveAndUpdate();
+            };
 
-            // Add 1–5 random entries for this day
-            const entries = Math.floor(Math.random() * 5) + 1;
+            const btns = document.createElement("div");
+            btns.className = "buttons";
+            btns.appendChild(btnAdd);
+            btns.appendChild(btnSub);
 
-            for (let j = 0; j < entries; j++) {
-            const category = fakeCategories[Math.floor(Math.random() * fakeCategories.length)];
-            const delta = Math.random() > 0.3 ? 1 : -1;
-            newLog.push({ category, delta, timestamp: dateStr });
+            categoryDiv.appendChild(label);
+            categoryDiv.appendChild(btns);
+            categoriesDiv.appendChild(categoryDiv);
+
+            total += points[key];
+            });
+
+            totalPointsSpan.textContent = total;
+            drawChart();
+        }
+
+        function saveAndUpdate() {
+            localStorage.setItem("points", JSON.stringify(points));
+            localStorage.setItem("pointLog", JSON.stringify(log));
+            updateDisplay();
+            db.ref('progressLog').set({ points, log })
+                .then(() => console.log("Synced to Firebase"))
+                .catch(error => console.error("Sync failed:", error));
+        }
+
+
+        function logPointChange(category, delta) {
+            const now = new Date();
+            log.push({
+            category,
+            delta,
+            timestamp: now.toISOString().split("T")[0] // YYYY-MM-DD
+            });
+        }
+
+        const whiteBackgroundPlugin = {
+            id: 'whiteBackgroundPlugin',
+            beforeDraw(chart, args, options) {
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-over';
+                ctx.fillStyle = options.color || 'white';
+                ctx.fillRect(0, 0, chart.width, chart.height);
+                ctx.restore();
             }
         }
 
-        // Add to existing log
-        log = [...log, ...newLog];
-        localStorage.setItem("pointLog", JSON.stringify(log));
+        function saveChartAndLog() {
+            // Format date as YYYY-MM-DD
+            const today = new Date().toISOString().split("T")[0];
+
+            // 1. Save chart as PNG
+            const canvas = document.getElementById('progressChart');
+            const imageLink = document.createElement('a');
+            imageLink.href = canvas.toDataURL('image/png');
+            imageLink.download = `sweet-points-chart-${today}.png`;
+            imageLink.click();
+
+            // 2. Save log as JSON
+            const dataStr = JSON.stringify(log, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const jsonLink = document.createElement("a");
+            jsonLink.href = url;
+            jsonLink.download = `sweet-points-log-${today}.json`;
+            jsonLink.click();
+            URL.revokeObjectURL(url);
+        }
+
+
+        function drawChart() {
+            // Step 1: Get all unique dates sorted
+            const datesSet = new Set();
+            log.forEach(e => datesSet.add(e.timestamp));
+            const dates = Array.from(datesSet).sort();
+
+            // Step 2: Prepare categories & colors
+            const categories = defaultCategories.map(c => c.key);
+            const categoryNames = defaultCategories.map(c => c.name);
+            const colors = [
+                "#FFD700", // Gold
+                "#FF69B4", // Hot Pink
+                "#87CEEB", // Sky Blue
+                "#98FB98"  // Pale Green
+            ];
+
+            // Step 3: Initialize dataset map: category → array of points per date
+            const dataByCategory = {};
+            categories.forEach(cat => {
+                dataByCategory[cat] = dates.map(() => 0);
+            });
+
+            // Step 4: Aggregate points per date/category
+            log.forEach(entry => {
+                const dateIndex = dates.indexOf(entry.timestamp);
+                if (dateIndex >= 0) {
+                dataByCategory[entry.category][dateIndex] += entry.delta;
+                }
+            });
+
+            // Step 5: Build datasets for Chart.js
+            const datasets = categories.map((cat, i) => ({
+                label: categoryNames[i],
+                data: dataByCategory[cat],
+                backgroundColor: colors[i],
+                borderRadius: 4,
+                borderSkipped: false,
+                maxBarThickness: 20,
+            }));
+
+            // Step 6: Create or update the chart
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            if (chart) chart.destroy();
+
+            chart = new Chart(ctx, 
+                {
+                    type: 'bar',
+                    data: {
+                        labels: dates,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    font: { size: 14 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} points`
+                                }
+                            },
+                            whiteBackgroundPlugin: {}  // activate plugin here
+                        },
+                        scales: {
+                            x: {
+                                stacked: true,
+                                title: {
+                                    display: true,
+                                    text: 'Date',
+                                    font: { size: 16, weight: 'bold' }
+                                }
+                            },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Points',
+                                    font: { size: 16, weight: 'bold' }
+                                }
+                            }
+                        }
+                    },
+                    plugins: [whiteBackgroundPlugin],
+                }
+            );
+        }
+
+        function saveProgressToFirebase() {
+            db.ref('progressLog').set(progressLog)
+                .then(() => console.log("Progress saved to Firebase"))
+                .catch(error => console.error("Save failed:", error));
+        }
+
+        function loadProgressFromFirebase(callback) {
+            db.ref('progressLog').once('value')
+                .then(snapshot => {
+                const data = snapshot.val();
+                if (data) callback(data);
+                else console.log("No progress data found in Firebase.");
+                })
+                .catch(error => console.error("Load failed:", error));
+        }
+
+        function simulateFakeData(days = 7) {
+            const today = new Date();
+            const fakeCategories = ["kindness", "homework", "listening", "helping"];
+            const newLog = [];
+
+            for (let i = 0; i < days; i++) {
+                const day = new Date(today);
+                day.setDate(today.getDate() - i);
+                const dateStr = day.toISOString().split("T")[0];
+
+                // Add 1–5 random entries for this day
+                const entries = Math.floor(Math.random() * 5) + 1;
+
+                for (let j = 0; j < entries; j++) {
+                const category = fakeCategories[Math.floor(Math.random() * fakeCategories.length)];
+                const delta = Math.random() > 0.3 ? 1 : -1;
+                newLog.push({ category, delta, timestamp: dateStr });
+                }
+            }
+
+            // Add to existing log
+            log = [...log, ...newLog];
+            localStorage.setItem("pointLog", JSON.stringify(log));
+
+            updateDisplay();
+        }
 
         updateDisplay();
-    }
-
-    updateDisplay();
-  </script>
+    </script>
 </body>
 </html>

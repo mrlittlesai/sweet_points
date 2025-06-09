@@ -1,1 +1,1 @@
-# sweet_points
+A simple web page that tracks the "Sweet Points" earned in a set of categories. It allows the addition/substraction of points, and displays the progress by day.
