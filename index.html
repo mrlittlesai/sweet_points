@@ -72,6 +72,9 @@
 <body>
 
     <h1>🍦 My Sweet Points Tracker 🍰 </h1>
+    
+    <label for="selectedDate">Select Date:</label>
+    <input type="date" id="selectedDate" />
 
     <div id="categories"></div>
 
@@ -114,25 +117,37 @@
             { name: "💪 Helping", key: "helping" }
         ];
 
-        let points = {
-            kindness: 0,
-            homework: 0,
-            listening: 0,
-            helping: 0
-        };
-
-        let log = [];
-
-        loadProgressFromFirebase((data) => {
-            if (data.points) points = data.points;
-            if (data.log) log = data.log;
-            updateDisplay();
-        });
-
         const categoriesDiv = document.getElementById("categories");
         const totalPointsSpan = document.getElementById("totalPoints");
         const progressLogDiv = document.getElementById("progressLog");
         let chart = null;
+        let points = getEmptyPoints();
+        let log = [];
+        
+        let currentDate = new Date().toLocaleString().split("T")[0]; // YYYY-MM-DD
+        document.getElementById("selectedDate").value = currentDate;
+        document.getElementById("selectedDate").addEventListener("change", (e) => {
+            currentDate = e.target.value;
+            loadProgressFromFirebase(currentDate, (data) => {
+                points = data.points || getEmptyPoints();
+                log = data.log || [];
+                updateDisplay();
+            });
+        });
+
+        function getEmptyPoints() {
+            return {
+                kindness: 0,
+                homework: 0,
+                listening: 0,
+                helping: 0
+            };
+        }
+
+        function isTodaySelected() {
+            const today = new Date().toLocaleString().split("T")[0];
+            return currentDate === today;
+        }
 
         function updateDisplay() {
             categoriesDiv.innerHTML = "";
@@ -146,9 +161,11 @@
             label.textContent = `${name}: ${points[key]} pts`;
 
             const btnAdd = document.createElement("button");
+            btnAdd.disabled = !isTodaySelected();
             btnAdd.textContent = "+";
             btnAdd.className = "add";
             btnAdd.onclick = () => {
+                if (!isTodaySelected()) return;
                 points[key]++;
                 logPointChange(key, 1);
                 saveAndUpdate();
@@ -157,7 +174,9 @@
             const btnSub = document.createElement("button");
             btnSub.textContent = "−";
             btnSub.className = "subtract";
+            btnSub.disabled = !isTodaySelected();
             btnSub.onclick = () => {
+                if (!isTodaySelected()) return;
                 if (points[key] > 0) {
                     points[key]--;
                     logPointChange(key, -1);
@@ -182,21 +201,21 @@
         }
 
         function saveAndUpdate() {
-            localStorage.setItem("points", JSON.stringify(points));
-            localStorage.setItem("pointLog", JSON.stringify(log));
+            localStorage.setItem(`points-${currentDate}`, JSON.stringify(points));
+            localStorage.setItem(`pointLog-${currentDate}`, JSON.stringify(log));
             updateDisplay();
-            db.ref('progressLog').set({ points, log })
+            db.ref(`progressLog/${currentDate}`).set({ points, log })
                 .then(() => console.log("Synced to Firebase"))
                 .catch(error => console.error("Sync failed:", error));
         }
 
-
         function logPointChange(category, delta) {
             const now = new Date();
+            const timestamp = `${now.toLocaleDateString('en-CA')} ${now.toLocaleTimeString('en-US', { hour12: false })}`;
             log.push({
-            category,
-            delta,
-            timestamp: now.toISOString().split("T")[0] // YYYY-MM-DD
+                category,
+                delta,
+                timestamp
             });
         }
 
@@ -236,9 +255,13 @@
 
 
         function drawChart() {
-            // Step 1: Get all unique dates sorted
+
+            // Step 1: Extract and collect only the date part (YYYY-MM-DD)
             const datesSet = new Set();
-            log.forEach(e => datesSet.add(e.timestamp));
+            log.forEach(e => {
+            const dateOnly = e.timestamp.split(" ")[0];  // Get just the date
+            datesSet.add(dateOnly);
+            });
             const dates = Array.from(datesSet).sort();
 
             // Step 2: Prepare categories & colors
@@ -259,7 +282,8 @@
 
             // Step 4: Aggregate points per date/category
             log.forEach(entry => {
-                const dateIndex = dates.indexOf(entry.timestamp);
+                const dateOnly = entry.timestamp.split(" ")[0];
+                const dateIndex = dates.indexOf(dateOnly);
                 if (dateIndex >= 0) {
                 dataByCategory[entry.category][dateIndex] += entry.delta;
                 }
@@ -337,44 +361,21 @@
                 .catch(error => console.error("Save failed:", error));
         }
 
-        function loadProgressFromFirebase(callback) {
-            db.ref('progressLog').once('value')
+        function loadProgressFromFirebase(date, callback) {
+            db.ref(`progressLog/${date}`).once('value')
                 .then(snapshot => {
-                const data = snapshot.val();
-                if (data) callback(data);
-                else console.log("No progress data found in Firebase.");
+                    const data = snapshot.val();
+                    if (data) callback(data);
+                    else callback({ points: getEmptyPoints(), log: [] });
                 })
-                .catch(error => console.error("Load failed:", error));
-        }
-
-        function simulateFakeData(days = 7) {
-            const today = new Date();
-            const fakeCategories = ["kindness", "homework", "listening", "helping"];
-            const newLog = [];
-
-            for (let i = 0; i < days; i++) {
-                const day = new Date(today);
-                day.setDate(today.getDate() - i);
-                const dateStr = day.toISOString().split("T")[0];
-
-                // Add 1–5 random entries for this day
-                const entries = Math.floor(Math.random() * 5) + 1;
-
-                for (let j = 0; j < entries; j++) {
-                const category = fakeCategories[Math.floor(Math.random() * fakeCategories.length)];
-                const delta = Math.random() > 0.3 ? 1 : -1;
-                newLog.push({ category, delta, timestamp: dateStr });
-                }
-            }
-
-            // Add to existing log
-            log = [...log, ...newLog];
-            localStorage.setItem("pointLog", JSON.stringify(log));
-
-            updateDisplay();
+                .catch(error => {
+                    console.error("Load failed:", error);
+                    callback({ points: getEmptyPoints(), log: [] });
+                });
         }
 
         updateDisplay();
+
     </script>
 </body>
 </html>
