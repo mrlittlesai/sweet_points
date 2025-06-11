@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Sweet Points Tracker</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body {
       font-family: "Comic Sans MS", "Chalkboard SE", "Comic Neue", cursive;
@@ -123,8 +123,8 @@
         let chart = null;
         let points = getEmptyPoints();
         let log = [];
-        
-        let currentDate = new Date().toLocaleString().split("T")[0]; // YYYY-MM-DD
+
+        let currentDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
         document.getElementById("selectedDate").value = currentDate;
         document.getElementById("selectedDate").addEventListener("change", (e) => {
             currentDate = e.target.value;
@@ -145,7 +145,7 @@
         }
 
         function isTodaySelected() {
-            const today = new Date().toLocaleString().split("T")[0];
+            const today = new Date().toLocaleDateString("en-CA");
             return currentDate === today;
         }
 
@@ -211,11 +211,11 @@
 
         function logPointChange(category, delta) {
             const now = new Date();
-            const timestamp = `${now.toLocaleDateString('en-CA')} ${now.toLocaleTimeString('en-US', { hour12: false })}`;
+            const local_ts = `${now.toLocaleDateString("en-CA")} ${now.toLocaleTimeString("en-US")}`
             log.push({
                 category,
                 delta,
-                timestamp
+                local_ts,
             });
         }
 
@@ -232,25 +232,12 @@
         }
 
         function saveChartAndLog() {
-            // Format date as YYYY-MM-DD
-            const today = new Date().toISOString().split("T")[0];
-
-            // 1. Save chart as PNG
+            const today = new Date().toLocaleDateString('en-CA'); //yyyy-mm-dd
             const canvas = document.getElementById('progressChart');
             const imageLink = document.createElement('a');
             imageLink.href = canvas.toDataURL('image/png');
             imageLink.download = `sweet-points-chart-${today}.png`;
             imageLink.click();
-
-            // 2. Save log as JSON
-            const dataStr = JSON.stringify(log, null, 2);
-            const blob = new Blob([dataStr], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const jsonLink = document.createElement("a");
-            jsonLink.href = url;
-            jsonLink.download = `sweet-points-log-${today}.json`;
-            jsonLink.click();
-            URL.revokeObjectURL(url);
         }
 
 
@@ -259,7 +246,7 @@
             // Step 1: Extract and collect only the date part (YYYY-MM-DD)
             const datesSet = new Set();
             log.forEach(e => {
-            const dateOnly = e.timestamp.split(" ")[0];  // Get just the date
+            const dateOnly = e.local_ts.split(" ")[0];  // Get just the date
             datesSet.add(dateOnly);
             });
             const dates = Array.from(datesSet).sort();
@@ -282,7 +269,7 @@
 
             // Step 4: Aggregate points per date/category
             log.forEach(entry => {
-                const dateOnly = entry.timestamp.split(" ")[0];
+                const dateOnly = entry.local_ts.split(" ")[0];
                 const dateIndex = dates.indexOf(dateOnly);
                 if (dateIndex >= 0) {
                 dataByCategory[entry.category][dateIndex] += entry.delta;
