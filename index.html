@@ -111,10 +111,11 @@
     <script>
 
         const defaultCategories = [
-            { name: "😊 Kindness", key: "kindness" },
-            { name: "📚 Homework", key: "homework" },
-            { name: "👂 Listening", key: "listening" },
-            { name: "💪 Helping", key: "helping" }
+            { name: "😊 Kindness", key: "kindness", color: "#FFD700" },        // Gold - warm and joyful
+            { name: "🔢 Math Study", key: "math_study", color: "#87CEEB" },    // Sky Blue - clarity and focus
+            { name: "🀄 Chinese Study", key: "chinese_study", color: "#DA70D6" }, // Orchid - thoughtful and creative
+            { name: "🎹 Piano Practice", key: "piano_practice", color: "#FFA07A" }, // Light Salmon - artistic energy
+            { name: "💪 Helping", key: "helping", color: "#98FB98" }           // Pale Green - kindness and support
         ];
 
         const categoriesDiv = document.getElementById("categories");
@@ -138,8 +139,9 @@
         function getEmptyPoints() {
             return {
                 kindness: 0,
-                homework: 0,
-                listening: 0,
+                math_study: 0,
+                chinese_study: 0,
+                piano_practice: 0,
                 helping: 0
             };
         }
@@ -201,8 +203,6 @@
         }
 
         function saveAndUpdate() {
-            localStorage.setItem(`points-${currentDate}`, JSON.stringify(points));
-            localStorage.setItem(`pointLog-${currentDate}`, JSON.stringify(log));
             updateDisplay();
             db.ref(`progressLog/${currentDate}`).set({ points, log })
                 .then(() => console.log("Synced to Firebase"))
@@ -254,12 +254,7 @@
             // Step 2: Prepare categories & colors
             const categories = defaultCategories.map(c => c.key);
             const categoryNames = defaultCategories.map(c => c.name);
-            const colors = [
-                "#FFD700", // Gold
-                "#FF69B4", // Hot Pink
-                "#87CEEB", // Sky Blue
-                "#98FB98"  // Pale Green
-            ];
+            const colors = defaultCategories.map(c => c.color);
 
             // Step 3: Initialize dataset map: category → array of points per date
             const dataByCategory = {};
@@ -361,7 +356,12 @@
                 });
         }
 
-        updateDisplay();
+        loadProgressFromFirebase(currentDate, (data) => {
+            points = data.points || getEmptyPoints();
+            log = data.log || [];
+            updateDisplay();
+        });
+
 
     </script>
 </body>
