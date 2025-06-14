@@ -65,7 +65,20 @@
     button, input, select, textarea {
         font-size: 16px; /* Prevent iOS zoom on tap */
     }
-    
+
+    #progressBar {
+        width: 100%;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+        margin-top: 20px;
+        font-size: 1.3em;
+    }
+
+    .progress-segment {
+        font-size: 12px; /* or any smaller size you prefer */
+    }
+
   </style>
 </head>
 
@@ -78,9 +91,9 @@
 
     <div id="categories"></div>
 
-    <div class="total">
-        🧮 Total Points: <span id="totalPoints">0</span>
-    </div>
+    <h2>📊 Total Progress</h2>
+    <div id="progressBar" style="display: flex; height: 30px; border-radius: 12px; overflow: hidden; background: #eee; margin-bottom: 10px;"></div>
+    <div id="categoryLabels" style="font-size: 0.9em; margin-bottom: 20px;"></div>
 
     <h2>📅 Progress by Day</h2>
     <canvas id="progressChart" width="400" height="200"></canvas>
@@ -198,7 +211,7 @@
             total += points[key];
             });
 
-            totalPointsSpan.textContent = total;
+            drawProgressBar();
             drawChart();
         }
 
@@ -240,6 +253,52 @@
             imageLink.click();
         }
 
+        function drawProgressBar() {
+            const bar = document.getElementById("progressBar");
+            bar.innerHTML = "";  // Clear previous segments
+
+            const totalPoints = Object.values(points).reduce((a, b) => a + b, 0);
+            const maxPoints = 50; // fixed total progress max
+
+            const colors = defaultCategories.map(c => c.color);
+
+            defaultCategories.forEach(({ key, name }, i) => {
+                const pts = points[key];
+                if (pts === 0) return;
+
+                const percent = Math.min(pts / maxPoints * 100, 100);
+
+                const segment = document.createElement("div");
+                segment.style.fontSize = "14px";
+                segment.style.width = percent + "%";
+                segment.style.backgroundColor = colors[i];
+                segment.style.display = "inline-block";
+                segment.style.height = "40px";
+                segment.style.position = "relative";
+                segment.style.color = "black";
+                segment.style.fontWeight = "bold";
+                segment.style.textAlign = "center";
+                segment.style.verticalAlign = "center";
+                segment.style.whiteSpace = "nowrap";
+
+                // Show emoji + points text inside bar segment
+                const emoji = defaultCategories[i].name.match(/[\p{Emoji}\u2600-\u27BF]/u)?.[0] || "";
+                segment.textContent = `${emoji} ${pts}`;
+
+                bar.appendChild(segment);
+            });
+
+            // Optional: show remaining progress as empty space if totalPoints < maxPoints
+            if (totalPoints < maxPoints) {
+                const remaining = maxPoints - totalPoints;
+                const emptySegment = document.createElement("div");
+                emptySegment.style.width = (remaining / maxPoints * 100) + "%";
+                emptySegment.style.backgroundColor = "#eee";
+                emptySegment.style.display = "inline-block";
+                emptySegment.style.height = "40px";
+                bar.appendChild(emptySegment);
+            }
+        }
 
         function drawChart() {
 
