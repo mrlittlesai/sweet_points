@@ -297,49 +297,56 @@
                 .catch(error => console.error("CumulativeStart save failed:", error));
         }
 
-
         function drawProgressBar() {
             const progressBar = document.getElementById("progressBar");
             const progressPercent = document.getElementById("progressPercent");
             progressBar.innerHTML = "";
 
             const totalEarned = Object.values(points).reduce((a, b) => a + b, 0);
-            const percentage = Math.min((totalEarned / TOTAL_GOAL) * 100, 100);
+            const grandTotal = cumulativeStart + totalEarned;
+            const percentage = Math.min((grandTotal / TOTAL_GOAL) * 100, 100);
             progressPercent.textContent = `${Math.round(percentage)}%`;
 
-            defaultCategories.forEach(({ name, key, color }) => {
-                const value = points[key];
-                if (value > 0) {
-                // Normal width based on share of total goal
-                let widthPercent = (value / TOTAL_GOAL) * 100;
-
-                // Enforce a minimum visible width if points > 1
-                if (value >= 1 && widthPercent < 4) {
-                    widthPercent = 4;
-                }
+            // Add segment for cumulativeStart
+            if (cumulativeStart > 0) {
+                let widthPercent = (cumulativeStart / TOTAL_GOAL) * 100;
+                if (widthPercent < 4) widthPercent = 4;
 
                 const segment = document.createElement("div");
                 segment.className = "progress-segment";
                 segment.style.width = `${widthPercent}%`;
-                segment.style.backgroundColor = color;
-                segment.innerHTML = `<span style="font-size: 14px;">${name.match(/[\p{Emoji}\u2600-\u27BF]/u)?.[0] || ""}</span>`;
+                segment.style.backgroundColor = "#a0c4ff"; 
+                segment.innerHTML = `<span style="font-size: 14px;">🗂️</span>`;
                 progressBar.appendChild(segment);
+            }
+
+            // Add segments for today’s categories
+            defaultCategories.forEach(({ name, key, color }) => {
+                const value = points[key];
+                if (value > 0) {
+                    let widthPercent = (value / TOTAL_GOAL) * 100;
+                    if (value >= 1 && widthPercent < 4) {
+                        widthPercent = 4;
+                    }
+
+                    const segment = document.createElement("div");
+                    segment.className = "progress-segment";
+                    segment.style.width = `${widthPercent}%`;
+                    segment.style.backgroundColor = color;
+                    segment.innerHTML = `<span style="font-size: 14px;">${name.match(/[\p{Emoji}\u2600-\u27BF]/u)?.[0] || ""}</span>`;
+                    progressBar.appendChild(segment);
                 }
             });
-            
-            const currentTotal = Object.values(points).reduce((a, b) => a + b, 0);
-            const grandTotal = cumulativeStart + currentTotal;
-            const maxTotal = 50;
 
-            const percent = Math.min((grandTotal / maxTotal) * 100, 100);
-            progressFill.style.width = percent + "%";
+            // Animate fill
+            progressFill.style.width = percentage + "%";
 
-            if (grandTotal >= maxTotal) {
+            if (grandTotal >= TOTAL_GOAL) {
                 progressMessage.textContent = "🌟 Amazing Job! You reached your goal! 🏆";
                 progressMessage.classList.add("bounce");
             } else {
                 progressMessage.classList.remove("bounce");
-                progressMessage.textContent = `You have ${grandTotal} points, only ${maxTotal - grandTotal} to go! 🚀`;
+                progressMessage.textContent = `You have ${grandTotal} points, only ${TOTAL_GOAL - grandTotal} to go! 🚀`;
             }
         }
 
