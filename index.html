@@ -62,8 +62,14 @@
       padding: 15px;
     }
 
-    button, input, select, textarea {
-        font-size: 16px; /* Prevent iOS zoom on tap */
+    input, select, textarea, button {
+        font-size: 16px !important;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    #selectedDate {
+        font-size: 16px !important;
+        -webkit-text-size-adjust: 100%;
     }
 
     #progressBar {
