@@ -148,6 +148,10 @@
     <button onclick="saveTodayProgress()" style="margin-top: 10px; padding: 10px; font-size: 1em;">
     💾 Save Today's Progress
     </button>
+    
+    <button id="toggleMusicBtn" style="margin-top: 10px; padding: 10px; font-size: 1em;">
+    ▶️ Play Celebration Music
+    </button>
 
     <audio id="celebrationSound" src="celebration.mp3" preload="auto"></audio>
 
@@ -381,6 +385,7 @@
                 if (sound) {
                     sound.currentTime = 0;
                     sound.play();
+                    toggleMusicBtn.textContent = "⏸️ Pause Celebration Music";
                 }
 
             } else {
@@ -415,6 +420,24 @@
                     callback({ points: getEmptyPoints(), log: [] });
                 });
         }
+
+        const celebrationSound = document.getElementById("celebrationSound");
+        const toggleMusicBtn = document.getElementById("toggleMusicBtn");
+
+        toggleMusicBtn.addEventListener("click", () => {
+        if (celebrationSound.paused) {
+            celebrationSound.play();
+            toggleMusicBtn.textContent = "⏸️ Pause Celebration Music";
+        } else {
+            celebrationSound.pause();
+            toggleMusicBtn.textContent = "▶️ Play Celebration Music";
+        }
+        });
+
+        // Optional: Reset button text when music ends
+        celebrationSound.addEventListener("ended", () => {
+            toggleMusicBtn.textContent = "▶️ Play Celebration Music";
+        });
 
         loadProgressFromFirebase(currentDate, (data) => {
             points = data.points || getEmptyPoints();
