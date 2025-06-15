@@ -161,7 +161,7 @@
         let log = [];
         
         const TOTAL_GOAL = 50;
-
+        let cumulativeStart = 0;
 
         let currentDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
         document.getElementById("selectedDate").value = currentDate;
@@ -170,6 +170,7 @@
             loadProgressFromFirebase(currentDate, (data) => {
                 points = data.points || getEmptyPoints();
                 log = data.log || [];
+                cumulativeStart = data.cumulativeStart || 0;
                 updateDisplay();
             });
         });
@@ -186,7 +187,8 @@
 
         function isTodaySelected() {
             const today = new Date().toLocaleDateString("en-CA");
-            return currentDate === today;
+            //return currentDate === today;
+            return 1;
         }
 
         function updateDisplay() {
@@ -240,10 +242,15 @@
         }
 
         function saveAndUpdate() {
+
+            const cumulativeTotal = Object.values(points).reduce((a, b) => a + b, 0);
+
             updateDisplay();
-            db.ref(`progressLog/${currentDate}`).set({ points, log })
-                .then(() => console.log("Synced to Firebase"))
-                .catch(error => console.error("Sync failed:", error));
+            
+            db.ref(`progressLog/${currentDate}`).set({ points, log, cumulativeTotal })
+            .then(() => console.log("Synced to Firebase"))
+            .catch(error => console.error("Sync failed:", error));
+
         }
 
         function logPointChange(category, delta) {
@@ -305,21 +312,53 @@
                 progressBar.appendChild(segment);
                 }
             });
+            
+            const currentTotal = Object.values(points).reduce((a, b) => a + b, 0);
+            const grandTotal = cumulativeStart + currentTotal;
+            const maxTotal = 50;
 
-            if (percentage >= 100) {
-                progressMessage.textContent = "🎉 Amazing Job! You're a super star! 🌟";
+            const percent = Math.min((grandTotal / maxTotal) * 100, 100);
+            progressFill.style.width = percent + "%";
+
+            if (grandTotal >= maxTotal) {
+                progressMessage.textContent = "🌟 Amazing Job! You reached your goal! 🏆";
                 progressMessage.classList.add("bounce");
             } else {
                 progressMessage.classList.remove("bounce");
-                progressMessage.textContent = "";
+                progressMessage.textContent = `You have ${grandTotal} points, only ${maxTotal - grandTotal} to go! 🚀`;
             }
         }
 
-        function saveProgressToFirebase() {
-            db.ref('progressLog').set(progressLog)
-                .then(() => console.log("Progress saved to Firebase"))
-                .catch(error => console.error("Save failed:", error));
+        function getPreviousDate(dateStr) {
+            const date = new Date(dateStr);
+            date.setDate(date.getDate() - 1);
+            return date.toLocaleDateString("en-CA");
         }
+
+
+        function loadProgressFromFirebase(date, callback) {
+            const prevDate = getPreviousDate(date);
+
+            Promise.all([
+                db.ref(`progressLog/${date}`).once('value'),
+                db.ref(`progressLog/${prevDate}`).once('value')
+            ]).then(([todaySnap, prevSnap]) => {
+                const todayData = todaySnap.val();
+                const prevData = prevSnap.val();
+
+                const prevCumulative = prevData?.cumulativeTotal || 0;
+
+                const points = todayData?.points || getEmptyPoints();
+                const log = todayData?.log || [];
+                const cumulativeStart = todayData?.cumulativeTotal ?? prevCumulative;
+
+                callback({ points, log, cumulativeStart });
+            }).catch(error => {
+                console.error("Load failed:", error);
+                callback({ points: getEmptyPoints(), log: [], cumulativeStart: 0 });
+            });
+        }
+
 
         function loadProgressFromFirebase(date, callback) {
             db.ref(`progressLog/${date}`).once('value')
