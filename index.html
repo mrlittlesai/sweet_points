@@ -76,8 +76,30 @@
     }
 
     .progress-segment {
-        font-size: 12px; /* or any smaller size you prefer */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        color: #000;
+        height: 100%;
     }
+
+    @keyframes bounce {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        30% {
+            transform: translateY(-15px);
+        }
+        60% {
+            transform: translateY(-8px);
+        }
+    }
+
+    .bounce {
+        animation: bounce 1s ease infinite;
+    }
+
 
   </style>
 </head>
@@ -91,14 +113,14 @@
 
     <div id="categories"></div>
 
-    <h2>📊 Total Progress</h2>
-    <div id="progressBar" style="display: flex; height: 30px; border-radius: 12px; overflow: hidden; background: #eee; margin-bottom: 10px;"></div>
-    <div id="categoryLabels" style="font-size: 0.9em; margin-bottom: 20px;"></div>
+    <div id="progressWrapper" style="margin-top: 20px;">
+        <div style="font-weight: bold; text-align: center;">📊 Total Progress: <span id="progressPercent">0%</span></div>
+        <div id="progressBar" style="display: flex; height: 30px; border: 2px solid #ccc; border-radius: 10px; overflow: hidden;"></div>
+        <div id="progressMessage" style="text-align:center; font-size: 1.5em; margin-top: 10px; color: #4CAF50;"></div>
+    </div>
 
-    <h2>📅 Progress by Day</h2>
-    <canvas id="progressChart" width="400" height="200"></canvas>
     <button onclick="saveChartAndLog()" style="margin-top: 10px; padding: 10px; font-size: 1em;">
-    💾 Save Progress
+    💾 Save Today's Progress
     </button>
 
     <!-- Firebase SDKs -->
@@ -137,6 +159,9 @@
         let chart = null;
         let points = getEmptyPoints();
         let log = [];
+        
+        const TOTAL_GOAL = 50;
+
 
         let currentDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
         document.getElementById("selectedDate").value = currentDate;
@@ -212,7 +237,6 @@
             });
 
             drawProgressBar();
-            drawChart();
         }
 
         function saveAndUpdate() {
@@ -254,146 +278,41 @@
         }
 
         function drawProgressBar() {
-            const bar = document.getElementById("progressBar");
-            bar.innerHTML = "";  // Clear previous segments
+            const progressBar = document.getElementById("progressBar");
+            const progressPercent = document.getElementById("progressPercent");
+            progressBar.innerHTML = "";
 
-            const totalPoints = Object.values(points).reduce((a, b) => a + b, 0);
-            const maxPoints = 50; // fixed total progress max
+            const totalEarned = Object.values(points).reduce((a, b) => a + b, 0);
+            const percentage = Math.min((totalEarned / TOTAL_GOAL) * 100, 100);
+            progressPercent.textContent = `${Math.round(percentage)}%`;
 
-            const colors = defaultCategories.map(c => c.color);
+            defaultCategories.forEach(({ name, key, color }) => {
+                const value = points[key];
+                if (value > 0) {
+                // Normal width based on share of total goal
+                let widthPercent = (value / TOTAL_GOAL) * 100;
 
-            defaultCategories.forEach(({ key, name }, i) => {
-                const pts = points[key];
-                if (pts === 0) return;
-
-                const percent = Math.min(pts / maxPoints * 100, 100);
+                // Enforce a minimum visible width if points > 1
+                if (value >= 1 && widthPercent < 4) {
+                    widthPercent = 4;
+                }
 
                 const segment = document.createElement("div");
-                segment.style.fontSize = "14px";
-                segment.style.width = percent + "%";
-                segment.style.backgroundColor = colors[i];
-                segment.style.display = "inline-block";
-                segment.style.height = "40px";
-                segment.style.position = "relative";
-                segment.style.color = "black";
-                segment.style.fontWeight = "bold";
-                segment.style.textAlign = "center";
-                segment.style.verticalAlign = "center";
-                segment.style.whiteSpace = "nowrap";
-
-                // Show emoji + points text inside bar segment
-                const emoji = defaultCategories[i].name.match(/[\p{Emoji}\u2600-\u27BF]/u)?.[0] || "";
-                segment.textContent = `${emoji} ${pts}`;
-
-                bar.appendChild(segment);
+                segment.className = "progress-segment";
+                segment.style.width = `${widthPercent}%`;
+                segment.style.backgroundColor = color;
+                segment.innerHTML = `<span style="font-size: 14px;">${name.match(/[\p{Emoji}\u2600-\u27BF]/u)?.[0] || ""}</span>`;
+                progressBar.appendChild(segment);
+                }
             });
 
-            // Optional: show remaining progress as empty space if totalPoints < maxPoints
-            if (totalPoints < maxPoints) {
-                const remaining = maxPoints - totalPoints;
-                const emptySegment = document.createElement("div");
-                emptySegment.style.width = (remaining / maxPoints * 100) + "%";
-                emptySegment.style.backgroundColor = "#eee";
-                emptySegment.style.display = "inline-block";
-                emptySegment.style.height = "40px";
-                bar.appendChild(emptySegment);
+            if (percentage >= 100) {
+                progressMessage.textContent = "🎉 Amazing Job! You're a super star! 🌟";
+                progressMessage.classList.add("bounce");
+            } else {
+                progressMessage.classList.remove("bounce");
+                progressMessage.textContent = "";
             }
-        }
-
-        function drawChart() {
-
-            // Step 1: Extract and collect only the date part (YYYY-MM-DD)
-            const datesSet = new Set();
-            log.forEach(e => {
-            const dateOnly = e.local_ts.split(" ")[0];  // Get just the date
-            datesSet.add(dateOnly);
-            });
-            const dates = Array.from(datesSet).sort();
-
-            // Step 2: Prepare categories & colors
-            const categories = defaultCategories.map(c => c.key);
-            const categoryNames = defaultCategories.map(c => c.name);
-            const colors = defaultCategories.map(c => c.color);
-
-            // Step 3: Initialize dataset map: category → array of points per date
-            const dataByCategory = {};
-            categories.forEach(cat => {
-                dataByCategory[cat] = dates.map(() => 0);
-            });
-
-            // Step 4: Aggregate points per date/category
-            log.forEach(entry => {
-                const dateOnly = entry.local_ts.split(" ")[0];
-                const dateIndex = dates.indexOf(dateOnly);
-                if (dateIndex >= 0) {
-                dataByCategory[entry.category][dateIndex] += entry.delta;
-                }
-            });
-
-            // Step 5: Build datasets for Chart.js
-            const datasets = categories.map((cat, i) => ({
-                label: categoryNames[i],
-                data: dataByCategory[cat],
-                backgroundColor: colors[i],
-                borderRadius: 4,
-                borderSkipped: false,
-                maxBarThickness: 20,
-            }));
-
-            // Step 6: Create or update the chart
-            const ctx = document.getElementById('progressChart').getContext('2d');
-            if (chart) chart.destroy();
-
-            chart = new Chart(ctx, 
-                {
-                    type: 'bar',
-                    data: {
-                        labels: dates,
-                        datasets: datasets
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                labels: {
-                                    font: { size: 14 }
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} points`
-                                }
-                            },
-                            whiteBackgroundPlugin: {}  // activate plugin here
-                        },
-                        scales: {
-                            x: {
-                                stacked: true,
-                                title: {
-                                    display: true,
-                                    text: 'Date',
-                                    font: { size: 16, weight: 'bold' }
-                                }
-                            },
-                            y: {
-                                stacked: true,
-                                beginAtZero: true,
-                                min: 0,
-                                max: 10,
-                                ticks: {
-                                    stepSize: 1
-                                },
-                                title: {
-                                    display: true,
-                                    text: 'Points',
-                                    font: { size: 16, weight: 'bold' }
-                                }
-                            }
-                        }
-                    },
-                    plugins: [whiteBackgroundPlugin],
-                }
-            );
         }
 
         function saveProgressToFirebase() {
