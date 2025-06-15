@@ -73,6 +73,19 @@
         box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
         margin-top: 20px;
         font-size: 1.3em;
+        display: flex;
+        height: 30px;
+        border: 2px solid #ccc;
+        border-radius: 10px;
+    }
+
+    .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(to right, #FFD700, #FF69B4, #87CEEB, #98FB98);
+        display: flex;
+        align-items: center;
+        transition: width 0.5s ease;
     }
 
     .progress-segment {
@@ -99,8 +112,6 @@
     .bounce {
         animation: bounce 1s ease infinite;
     }
-
-
   </style>
 </head>
 
@@ -115,18 +126,17 @@
 
     <div id="progressWrapper" style="margin-top: 20px;">
         <div style="font-weight: bold; text-align: center;">📊 Total Progress: <span id="progressPercent">0%</span></div>
-        <div id="progressBar" style="display: flex; height: 30px; border: 2px solid #ccc; border-radius: 10px; overflow: hidden;"></div>
+        <div id="progressBar"></div>
         <div id="progressMessage" style="text-align:center; font-size: 1.5em; margin-top: 10px; color: #4CAF50;"></div>
     </div>
 
-    <button onclick="saveChartAndLog()" style="margin-top: 10px; padding: 10px; font-size: 1em;">
+    <button onclick="saveAndUpdate()" style="margin-top: 10px; padding: 10px; font-size: 1em;">
     💾 Save Today's Progress
     </button>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-
 
     <script>
         const firebaseConfig = {
@@ -154,9 +164,9 @@
         ];
 
         const categoriesDiv = document.getElementById("categories");
-        const totalPointsSpan = document.getElementById("totalPoints");
-        const progressLogDiv = document.getElementById("progressLog");
-        let chart = null;
+        const progressPercent = document.getElementById("progressPercent");
+        const progressBar = document.getElementById("progressBar");
+        const progressMessage = document.getElementById("progressMessage");
         let points = getEmptyPoints();
         let log = [];
         
@@ -186,6 +196,7 @@
         }
 
         function isTodaySelected() {
+            // Allow edits only on today
             const today = new Date().toLocaleDateString("en-CA");
             //return currentDate === today;
             return 1;
@@ -193,69 +204,69 @@
 
         function updateDisplay() {
             categoriesDiv.innerHTML = "";
-            let total = 0;
+
+            let totalToday = 0;
 
             defaultCategories.forEach(({ name, key }) => {
-            const categoryDiv = document.createElement("div");
-            categoryDiv.className = "category";
+                const categoryDiv = document.createElement("div");
+                categoryDiv.className = "category";
 
-            const label = document.createElement("span");
-            label.textContent = `${name}: ${points[key]} pts`;
+                const label = document.createElement("span");
+                label.textContent = `${name}: ${points[key]} pts`;
 
-            const btnAdd = document.createElement("button");
-            btnAdd.disabled = !isTodaySelected();
-            btnAdd.textContent = "+";
-            btnAdd.className = "add";
-            btnAdd.onclick = () => {
-                if (!isTodaySelected()) return;
-                points[key]++;
-                logPointChange(key, 1);
-                saveAndUpdate();
-            };
-
-            const btnSub = document.createElement("button");
-            btnSub.textContent = "−";
-            btnSub.className = "subtract";
-            btnSub.disabled = !isTodaySelected();
-            btnSub.onclick = () => {
-                if (!isTodaySelected()) return;
-                if (points[key] > 0) {
-                    points[key]--;
-                    logPointChange(key, -1);
+                const btnAdd = document.createElement("button");
+                btnAdd.disabled = !isTodaySelected();
+                btnAdd.textContent = "+";
+                btnAdd.className = "add";
+                btnAdd.onclick = () => {
+                    if (!isTodaySelected()) return;
+                    points[key]++;
+                    logPointChange(key, 1);
                     saveAndUpdate();
-                }
-            };
+                };
 
-            const btns = document.createElement("div");
-            btns.className = "buttons";
-            btns.appendChild(btnAdd);
-            btns.appendChild(btnSub);
+                const btnSub = document.createElement("button");
+                btnSub.textContent = "−";
+                btnSub.className = "subtract";
+                btnSub.disabled = !isTodaySelected();
+                btnSub.onclick = () => {
+                    if (!isTodaySelected()) return;
+                    if (points[key] > 0) {
+                        points[key]--;
+                        logPointChange(key, -1);
+                        saveAndUpdate();
+                    }
+                };
 
-            categoryDiv.appendChild(label);
-            categoryDiv.appendChild(btns);
-            categoriesDiv.appendChild(categoryDiv);
+                const btns = document.createElement("div");
+                btns.className = "buttons";
+                btns.appendChild(btnAdd);
+                btns.appendChild(btnSub);
 
-            total += points[key];
+                categoryDiv.appendChild(label);
+                categoryDiv.appendChild(btns);
+                categoriesDiv.appendChild(categoryDiv);
+
+                totalToday += points[key];
             });
 
-            drawProgressBar();
+            drawProgressBar(totalToday);
         }
 
         function saveAndUpdate() {
-
-            const cumulativeTotal = Object.values(points).reduce((a, b) => a + b, 0);
+            const totalToday = Object.values(points).reduce((a, b) => a + b, 0);
+            const cumulativeTotal = cumulativeStart + totalToday;
 
             updateDisplay();
-            
-            db.ref(`progressLog/${currentDate}`).set({ points, log, cumulativeTotal })
+
+            db.ref(`progressLog/${currentDate}`).set({ points, log, cumulativeTotal, cumulativeStart })
             .then(() => console.log("Synced to Firebase"))
             .catch(error => console.error("Sync failed:", error));
-
         }
 
         function logPointChange(category, delta) {
             const now = new Date();
-            const local_ts = `${now.toLocaleDateString("en-CA")} ${now.toLocaleTimeString("en-US")}`
+            const local_ts = `${now.toLocaleDateString("en-CA")} ${now.toLocaleTimeString("en-US")}`;
             log.push({
                 category,
                 delta,
@@ -263,69 +274,35 @@
             });
         }
 
-        const whiteBackgroundPlugin = {
-            id: 'whiteBackgroundPlugin',
-            beforeDraw(chart, args, options) {
-                const ctx = chart.ctx;
-                ctx.save();
-                ctx.globalCompositeOperation = 'destination-over';
-                ctx.fillStyle = options.color || 'white';
-                ctx.fillRect(0, 0, chart.width, chart.height);
-                ctx.restore();
-            }
-        }
-
-        function saveChartAndLog() {
-            const today = new Date().toLocaleDateString('en-CA'); //yyyy-mm-dd
-            const canvas = document.getElementById('progressChart');
-            const imageLink = document.createElement('a');
-            imageLink.href = canvas.toDataURL('image/png');
-            imageLink.download = `sweet-points-chart-${today}.png`;
-            imageLink.click();
-        }
-
-        function drawProgressBar() {
-            const progressBar = document.getElementById("progressBar");
-            const progressPercent = document.getElementById("progressPercent");
+        function drawProgressBar(totalToday) {
             progressBar.innerHTML = "";
 
-            const totalEarned = Object.values(points).reduce((a, b) => a + b, 0);
-            const percentage = Math.min((totalEarned / TOTAL_GOAL) * 100, 100);
-            progressPercent.textContent = `${Math.round(percentage)}%`;
-
+            // Show segments by category proportional to total goal (50)
             defaultCategories.forEach(({ name, key, color }) => {
                 const value = points[key];
                 if (value > 0) {
-                // Normal width based on share of total goal
-                let widthPercent = (value / TOTAL_GOAL) * 100;
+                    let widthPercent = (value / TOTAL_GOAL) * 100;
+                    if (value >= 1 && widthPercent < 4) widthPercent = 4;
 
-                // Enforce a minimum visible width if points > 1
-                if (value >= 1 && widthPercent < 4) {
-                    widthPercent = 4;
-                }
-
-                const segment = document.createElement("div");
-                segment.className = "progress-segment";
-                segment.style.width = `${widthPercent}%`;
-                segment.style.backgroundColor = color;
-                segment.innerHTML = `<span style="font-size: 14px;">${name.match(/[\p{Emoji}\u2600-\u27BF]/u)?.[0] || ""}</span>`;
-                progressBar.appendChild(segment);
+                    const segment = document.createElement("div");
+                    segment.className = "progress-segment";
+                    segment.style.width = `${widthPercent}%`;
+                    segment.style.backgroundColor = color;
+                    segment.textContent = name.match(/[\p{Emoji}\u2600-\u27BF]/u)?.[0] || "";
+                    progressBar.appendChild(segment);
                 }
             });
-            
-            const currentTotal = Object.values(points).reduce((a, b) => a + b, 0);
-            const grandTotal = cumulativeStart + currentTotal;
-            const maxTotal = 50;
 
-            const percent = Math.min((grandTotal / maxTotal) * 100, 100);
-            progressFill.style.width = percent + "%";
+            const grandTotal = cumulativeStart + totalToday;
+            const percent = Math.min((grandTotal / TOTAL_GOAL) * 100, 100);
+            progressPercent.textContent = `${Math.round(percent)}%`;
 
-            if (grandTotal >= maxTotal) {
+            if (grandTotal >= TOTAL_GOAL) {
                 progressMessage.textContent = "🌟 Amazing Job! You reached your goal! 🏆";
                 progressMessage.classList.add("bounce");
             } else {
                 progressMessage.classList.remove("bounce");
-                progressMessage.textContent = `You have ${grandTotal} points, only ${maxTotal - grandTotal} to go! 🚀`;
+                progressMessage.textContent = `You have ${grandTotal} points, only ${TOTAL_GOAL - grandTotal} to go! 🚀`;
             }
         }
 
@@ -334,7 +311,6 @@
             date.setDate(date.getDate() - 1);
             return date.toLocaleDateString("en-CA");
         }
-
 
         function loadProgressFromFirebase(date, callback) {
             const prevDate = getPreviousDate(date);
@@ -347,10 +323,10 @@
                 const prevData = prevSnap.val();
 
                 const prevCumulative = prevData?.cumulativeTotal || 0;
-
                 const points = todayData?.points || getEmptyPoints();
                 const log = todayData?.log || [];
-                const cumulativeStart = todayData?.cumulativeTotal ?? prevCumulative;
+                // Start cumulative from yesterday's total
+                const cumulativeStart = prevCumulative;
 
                 callback({ points, log, cumulativeStart });
             }).catch(error => {
@@ -359,26 +335,32 @@
             });
         }
 
+        async function loadInitialProgress(date) {
+            const prevDate = getPreviousDate(date);
+            try {
+                const prevSnap = await db.ref(`progressLog/${prevDate}`).once('value');
+                const prevData = prevSnap.val();
+                const prevCumulative = prevData?.cumulativeTotal || 0;
 
-        function loadProgressFromFirebase(date, callback) {
-            db.ref(`progressLog/${date}`).once('value')
-                .then(snapshot => {
-                    const data = snapshot.val();
-                    if (data) callback(data);
-                    else callback({ points: getEmptyPoints(), log: [] });
-                })
-                .catch(error => {
-                    console.error("Load failed:", error);
-                    callback({ points: getEmptyPoints(), log: [] });
-                });
+                const todaySnap = await db.ref(`progressLog/${date}`).once('value');
+                const todayData = todaySnap.val();
+
+                points = todayData?.points || getEmptyPoints();
+                log = todayData?.log || [];
+                cumulativeStart = prevCumulative;
+
+                updateDisplay();
+            } catch (error) {
+                console.error("Load failed:", error);
+                points = getEmptyPoints();
+                log = [];
+                cumulativeStart = 0;
+                updateDisplay();
+            }
         }
 
-        loadProgressFromFirebase(currentDate, (data) => {
-            points = data.points || getEmptyPoints();
-            log = data.log || [];
-            updateDisplay();
-        });
-
+        // Use this to load on initial page load:
+        loadInitialProgress(currentDate);
 
     </script>
 </body>
