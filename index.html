@@ -149,6 +149,8 @@
     💾 Save Today's Progress
     </button>
 
+    <audio id="celebrationSound" src="celebration.mp3" preload="auto"></audio>
+
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -373,6 +375,14 @@
             if (grandTotal >= TOTAL_GOAL) {
                 progressMessage.textContent = "🌟 Amazing Job! You reached your goal! 🏆";
                 progressMessage.classList.add("bounce");
+
+                // Play celebration sound
+                const sound = document.getElementById("celebrationSound");
+                if (sound) {
+                    sound.currentTime = 0;
+                    sound.play();
+                }
+
             } else {
                 progressMessage.classList.remove("bounce");
                 progressMessage.textContent = `You have ${grandTotal} points, only ${TOTAL_GOAL - grandTotal} to go! 🚀`;
