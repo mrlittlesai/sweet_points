@@ -84,6 +84,15 @@
         height: 100%;
     }
 
+    .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(to right, #FFD700, #FF69B4, #87CEEB, #98FB98);
+        display: flex;
+        align-items: center;
+        transition: width 0.5s ease;
+    }
+
     @keyframes bounce {
         0%, 100% {
             transform: translateY(0);
@@ -116,6 +125,7 @@
     <div id="progressWrapper" style="margin-top: 20px;">
         <div style="font-weight: bold; text-align: center;">📊 Total Progress: <span id="progressPercent">0%</span></div>
         <div id="progressBar" style="display: flex; height: 30px; border: 2px solid #ccc; border-radius: 10px; overflow: hidden;"></div>
+        <div id="progressFill" class="progress-fill"></div>
         <div id="progressMessage" style="text-align:center; font-size: 1.5em; margin-top: 10px; color: #4CAF50;"></div>
     </div>
 
@@ -334,31 +344,6 @@
             date.setDate(date.getDate() - 1);
             return date.toLocaleDateString("en-CA");
         }
-
-
-        function loadProgressFromFirebase(date, callback) {
-            const prevDate = getPreviousDate(date);
-
-            Promise.all([
-                db.ref(`progressLog/${date}`).once('value'),
-                db.ref(`progressLog/${prevDate}`).once('value')
-            ]).then(([todaySnap, prevSnap]) => {
-                const todayData = todaySnap.val();
-                const prevData = prevSnap.val();
-
-                const prevCumulative = prevData?.cumulativeTotal || 0;
-
-                const points = todayData?.points || getEmptyPoints();
-                const log = todayData?.log || [];
-                const cumulativeStart = todayData?.cumulativeTotal ?? prevCumulative;
-
-                callback({ points, log, cumulativeStart });
-            }).catch(error => {
-                console.error("Load failed:", error);
-                callback({ points: getEmptyPoints(), log: [], cumulativeStart: 0 });
-            });
-        }
-
 
         function loadProgressFromFirebase(date, callback) {
             db.ref(`progressLog/${date}`).once('value')
