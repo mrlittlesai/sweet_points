@@ -117,8 +117,18 @@
 
     <h1>🍦 My Sweet Points Tracker 🍰 </h1>
     
-    <label for="selectedDate">Select Date:</label>
-    <input type="date" id="selectedDate" />
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div>
+            <label for="selectedDate">📅 Select Date:</label>
+            <input type="date" id="selectedDate" />
+        </div>
+        <div>
+            <label style="font-size: 0.95em;">
+            <input type="checkbox" id="auditToggle" />
+            🔐 Audit Mode
+            </label>
+        </div>
+    </div>
 
     <div id="categories"></div>
 
@@ -174,6 +184,17 @@
         let cumulativeStart = 0;
 
         let currentDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+
+        let isAuditMode = false;
+
+        document.getElementById("auditToggle").addEventListener("change", (e) => {
+            isAuditMode = e.target.checked;
+            updateDisplay();
+
+            // Optional: Visual cue for audit mode
+            document.body.style.backgroundColor = isAuditMode ? "#fff0f5" : "#fdf6e3";
+        });
+
         document.getElementById("selectedDate").value = currentDate;
         document.getElementById("selectedDate").addEventListener("change", (e) => {
             currentDate = e.target.value;
@@ -196,9 +217,9 @@
         }
 
         function isTodaySelected() {
+            if (isAuditMode) return true;
             const today = new Date().toLocaleDateString("en-CA");
-            //return currentDate === today;
-            return 1;
+            return currentDate === today;
         }
 
         function updateDisplay() {
