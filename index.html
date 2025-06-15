@@ -2,10 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sweet Points Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
+
+    html {
+        -webkit-text-size-adjust: 100%; /* prevent iOS font auto resizing */
+        touch-action: manipulation; /* improve touch behavior */
+    }
+
     body {
       font-family: "Comic Sans MS", "Chalkboard SE", "Comic Neue", cursive;
       background: #fdf6e3;
@@ -13,6 +19,8 @@
       padding: 20px;
       max-width: 600px;
       margin: auto;
+      -webkit-text-size-adjust: 100%; /* prevent iOS font auto resizing */
+      touch-action: manipulation; /* improve touch behavior */
     }
 
     h1 {
