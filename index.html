@@ -232,7 +232,7 @@
 
             const label = document.createElement("span");
             label.textContent = `${name}: ${points[key]} pts`;
-
+            
             const btnAdd = document.createElement("button");
             btnAdd.disabled = !isTodaySelected();
             btnAdd.textContent = "+";
@@ -268,6 +268,8 @@
 
             total += points[key];
             });
+
+            document.querySelector("button[onclick='saveTodayProgress()']").disabled = !isTodaySelected();
 
             drawProgressBar();
         }
@@ -401,6 +403,7 @@
         loadProgressFromFirebase(currentDate, (data) => {
             points = data.points || getEmptyPoints();
             log = data.log || [];
+            cumulativeStart = data.cumulativeStart || 0;
             updateDisplay();
         });
 
