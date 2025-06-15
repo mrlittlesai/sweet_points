@@ -129,7 +129,7 @@
         <div id="progressMessage" style="text-align:center; font-size: 1.5em; margin-top: 10px; color: #4CAF50;"></div>
     </div>
 
-    <button onclick="saveChartAndLog()" style="margin-top: 10px; padding: 10px; font-size: 1em;">
+    <button onclick="saveTodayProgress()" style="margin-top: 10px; padding: 10px; font-size: 1em;">
     💾 Save Today's Progress
     </button>
 
@@ -285,14 +285,18 @@
             }
         }
 
-        function saveChartAndLog() {
-            const today = new Date().toLocaleDateString('en-CA'); //yyyy-mm-dd
-            const canvas = document.getElementById('progressChart');
-            const imageLink = document.createElement('a');
-            imageLink.href = canvas.toDataURL('image/png');
-            imageLink.download = `sweet-points-chart-${today}.png`;
-            imageLink.click();
+        function saveTodayProgress() {
+            const today = new Date().toLocaleDateString('en-CA');
+
+            // Save cumulative total to tomorrow
+            const todayTotal = Object.values(points).reduce((a, b) => a + b, 0);
+            const tomorrow = getNextDate(currentDate);
+
+            db.ref(`progressLog/${tomorrow}/cumulativeStart`).set(cumulativeStart + todayTotal)
+                .then(() => console.log(`Saved cumulativeStart for ${tomorrow}`))
+                .catch(error => console.error("CumulativeStart save failed:", error));
         }
+
 
         function drawProgressBar() {
             const progressBar = document.getElementById("progressBar");
@@ -340,9 +344,17 @@
         }
 
         function getPreviousDate(dateStr) {
-            const date = new Date(dateStr);
+            const [year, month, day] = dateStr.split('-').map(Number);
+            const date = new Date(year, month - 1, day); // local time
             date.setDate(date.getDate() - 1);
-            return date.toLocaleDateString("en-CA");
+            return date.toLocaleDateString("en-CA"); // Returns YYYY-MM-DD
+        }
+
+        function getNextDate(dateStr) {
+            const [year, month, day] = dateStr.split('-').map(Number);
+            const date = new Date(year, month - 1, day); // local time
+            date.setDate(date.getDate() + 1);
+            return date.toLocaleDateString("en-CA"); // Returns YYYY-MM-DD
         }
 
         function loadProgressFromFirebase(date, callback) {
